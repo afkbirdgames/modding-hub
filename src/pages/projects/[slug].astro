@@ -32,7 +32,7 @@ const resources = [
   data.links.discord && { icon: "discord" as const, label: "Project Discord", text: playable ? "Chat with other players" : "Chat with other users", url: data.links.discord },
 ].filter(Boolean) as { icon: "book" | "list" | "bug" | "discord"; label: string; text: string; url: string }[];
 ---
-<BaseLayout title={data.title} description={data.summary} image={data.cover} accent={data.accent}>
+<BaseLayout title={data.title} description={data.summary} image={data.cover} imageAlt={data.coverAlt} accent={data.accent}>
   <article>
     <header class="wrap head">
       <nav aria-label="Breadcrumb" class="crumbs"><a href={href("/projects/")}>Projects</a><span aria-hidden="true">/</span><span aria-current="page">{data.title}</span></nav>

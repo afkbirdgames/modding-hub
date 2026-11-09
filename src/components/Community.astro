@@ -17,9 +17,9 @@ const channels = [
 ].filter(Boolean) as { icon: "youtube" | "x" | "github"; name: string; text: string; url: string }[];
 ---
 {(discord || channels.length > 0) && (
-  <div class="community">
+  <div class="community" data-sc-in data-sc-stagger="80">
     {discord && (
-      <article class="discord" data-guild={server?.id}>
+      <article class="discord" data-guild={server?.id} data-sc-tilt="4">
         <div class="d-head">
           {server?.icon
             ? <img class="d-icon" src={server.icon} alt="" width="56" height="56" loading="lazy" />
@@ -72,7 +72,7 @@ const channels = [
 
 <style>
   .community { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; align-items: stretch; }
-  .discord { display: grid; gap: 18px; align-content: start; padding: 24px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); border-top: 3px solid #5865f2; }
+  .discord { display: grid; gap: 18px; align-content: start; padding: 24px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); border-top: 3px solid #5865f2; box-shadow: var(--edge), var(--e2); }
   .d-head { display: flex; gap: 16px; align-items: center; }
   .d-icon { width: 56px; height: 56px; border-radius: 16px; flex: none; background: var(--bg); }
   .d-fallback { display: grid; place-items: center; color: #8a93ff; }
@@ -84,7 +84,7 @@ const channels = [
   .discord .btn { justify-self: start; }
 
   .channels { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; align-content: start; }
-  .channels a { display: flex; align-items: center; gap: 16px; padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--radius); text-decoration: none; background: var(--surface); }
+  .channels a { display: flex; align-items: center; gap: 16px; padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--radius); text-decoration: none; background: var(--surface); box-shadow: var(--edge), var(--e1); transition: background-color 150ms var(--ease-out), border-color 150ms var(--ease-out); }
   .channels a:hover { border-color: #3b4050; background: var(--surface-2); }
   .c-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: var(--bg); flex: none; }
   .c-icon :global(svg) { width: 22px; height: 22px; }

@@ -1,0 +1,46 @@
+---
+// The afkbird mark as inline SVG, drawn from the same shapes as
+// public/brand/afkbird-bird.svg.
+//   variant="mark"   the logo: the X eye is cut out (see-through).
+//   variant="docent" the walking bird on the homepage. It has two eyes drawn
+//                    on top: a round one while the visitor is active and the
+//                    logo's X when they go idle. The page toggles .afk on a
+//                    parent to swap them.
+interface Props { variant?: "mark" | "docent"; class?: string }
+const { variant = "mark", class: cls } = Astro.props;
+// Each instance needs its own mask id or the second copy on a page reuses the first.
+const id = `bird-${Math.random().toString(36).slice(2, 8)}`;
+---
+<svg class:list={["bird", `bird--${variant}`, cls]} viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+  {variant === "mark" && (
+    <defs>
+      <mask id={id} maskUnits="userSpaceOnUse" x="0" y="0" width="120" height="120">
+        <rect width="120" height="120" fill="#fff" />
+        <g stroke="#000" stroke-width="8" stroke-linecap="round"><path d="M62 50 L76 64" /><path d="M76 50 L62 64" /></g>
+      </mask>
+    </defs>
+  )}
+  <g class="bird-body" mask={variant === "mark" ? `url(#${id})` : undefined} fill="currentColor">
+    <circle cx="58" cy="66" r="40" />
+    <path d="M90 47 L118 64 L90 81 Z" />
+    <path d="M30 40 L2 26 L44 30 Z" />
+    <path d="M40 31 L20 4 L58 27 Z" />
+    <path d="M18 70 L8 108 L58 106 Z" />
+  </g>
+  {variant === "docent" && (
+    <g class="eyes">
+      <g class="eye-awake"><circle cx="69" cy="57" r="7.5" class="eye-ink" /><circle cx="71.5" cy="54.5" r="2.2" class="eye-glint" /></g>
+      <g class="eye-afk" stroke-width="8" stroke-linecap="round"><path d="M62 50 L76 64" /><path d="M76 50 L62 64" /></g>
+    </g>
+  )}
+</svg>
+
+<style>
+  .bird { display: block; width: 100%; height: auto; overflow: visible; }
+  .eye-ink { fill: var(--bg); }
+  .eye-glint { fill: var(--text); opacity: 0.85; }
+  .eye-afk { stroke: var(--bg); opacity: 0; }
+  :global(.afk) .eye-awake { opacity: 0; }
+  :global(.afk) .eye-afk { opacity: 1; }
+  .eyes > g { transition: opacity 180ms var(--ease-out); }
+</style>
