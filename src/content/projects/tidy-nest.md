@@ -37,15 +37,15 @@ legal: Not an official Minecraft product. Not approved by or associated with Moj
 
 ## What it does
 
-Open a chest or your inventory and you'll see a small button with three bars above each grid. Click it and that grid is sorted. No menus, nothing to set up.
+Open a chest or your inventory and you'll see a small button with three bars above each grid. Click it and that grid is sorted. There are no menus and nothing to set up.
 
-* **Stacks are merged**, biggest stacks first.
-* **Gear comes first**, best first: weapons and tools by type with the best material and least worn first, then armour head to feet, then shields and other gear.
-* **Then blocks, food and potions, materials, other items**, and shulker boxes and bundles last.
-* **Like items stay together:** each wood type from sapling to planks to door, all glass in every colour, all dyes, a stone with its stairs and slabs, an ore with its ingots. The same things always end up in the same place.
-* **Your hotbar, armour and off hand never move.**
-* **Shortcuts:** double-click an empty slot or middle-click any slot to sort its grid.
-* **Works on any server.** With Tidy Nest on the server the server sorts in one step; without it, your game does the same with ordinary clicks and stops safely if anything doesn't match.
+* Stacks are merged, biggest stacks first.
+* Gear comes first, best first: weapons and tools by type with the best material and least worn first, then armour head to feet, then shields and other gear.
+* Then blocks, food and potions, materials and other items, with shulker boxes and bundles last.
+* Like items stay together: each wood type from sapling to planks to door, all glass in every colour, all dyes, a stone with its stairs and slabs, an ore with its ingots. The same things always end up in the same place.
+* Your hotbar, armour and off hand never move.
+* Double-click an empty slot or middle-click any slot to sort its grid.
+* It works on any server. With Tidy Nest on the server the server sorts in one step; without it, your game does the same with ordinary clicks and stops safely if anything doesn't match.
 
 Works with your inventory, chests, double chests, barrels, ender chests, chest minecarts and boats, and shulker boxes.
 

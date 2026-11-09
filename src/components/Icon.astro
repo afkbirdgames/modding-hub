@@ -19,6 +19,6 @@ const paths: Record<Props["name"], string> = {
 };
 const filled = name === "github" || name === "discord" || name === "youtube" || name === "x";
 ---
-<svg viewBox="0 0 24 24" aria-hidden={label ? undefined : "true"} role={label ? "img" : undefined} aria-label={label}
+<svg class="icon" viewBox="0 0 24 24" aria-hidden={label ? undefined : "true"} role={label ? "img" : undefined} aria-label={label}
   fill={filled ? "currentColor" : "none"} stroke={filled ? "none" : "currentColor"}
   stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d={paths[name]} /></svg>

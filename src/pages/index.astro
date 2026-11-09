@@ -1,8 +1,13 @@
 ---
+// Homepage, built with the scroll-craft engine (src/vendor/scrollcraft).
+// The plan behind it (journey, feeling curve, devices) is in
+// docs/scrollcraft/builds/homepage-2026-11/BRIEF.md.
+import "../vendor/scrollcraft/scrollcraft.css";
+import { getImage } from "astro:assets";
 import BaseLayout from "../layouts/BaseLayout.astro";
-import ProjectCard from "../components/ProjectCard.astro";
 import ServerList from "../components/ServerList.astro";
 import Icon from "../components/Icon.astro";
+import Bird from "../components/Bird.astro";
 import Community from "../components/Community.astro";
 import LatestVideos from "../components/LatestVideos.astro";
 import { allProjects, allServers, groupByKind } from "../lib/projects";
@@ -12,138 +17,452 @@ import { href } from "../lib/url";
 
 const projects = await allProjects();
 const servers = allServers();
-// One row per project type (Mods, Tools, ...), up to three projects each.
 const rows = groupByKind(projects);
-const perRow = 3;
+const releases = new Map(await Promise.all(projects.map(async (p) => [p.id, await latestRelease(p.data.repo)] as const)));
 
-// The release board: every project with a GitHub release, newest first.
-const board = (
-  await Promise.all(projects.map(async (p) => ({ project: p, release: await latestRelease(p.data.repo) })))
-)
-  .filter((r) => r.release)
-  .sort((a, b) => b.release!.publishedAt.getTime() - a.release!.publishedAt.getTime())
-  .slice(0, 4);
+// Release ledger: every project with a GitHub release, newest first.
+const ledger = projects
+  .filter((p) => releases.get(p.id))
+  .sort((a, b) => releases.get(b.id)!.publishedAt.getTime() - releases.get(a.id)!.publishedAt.getTime())
+  .slice(0, 5);
+
+// Hero: the first three projects' art, stacked as prints. Slot order is
+// middle, front, back, so the first project sits in the middle of the stack.
+const slots = ["mid", "front", "back"] as const;
+const plates = await Promise.all(
+  projects.slice(0, 3).map(async (p, i) => {
+    const src = p.data.thumb ?? p.data.cover;
+    const img = await getImage({ src, width: 900, format: "webp" });
+    return { slot: slots[i], src: img.src, w: src.width, h: src.height, pixel: p.data.pixelArt, accent: p.data.accent };
+  }),
+);
+
+// Projects hall: each picture keeps its own shape within limits, so wide renders
+// stay wide and screenshots stay screenshots.
+const hall = await Promise.all(
+  rows.map(async (row) => ({
+    ...row,
+    items: await Promise.all(
+      row.items.map(async (p) => {
+        const src = p.data.thumb ?? p.data.cover;
+        const sm = await getImage({ src, width: 800, format: "webp" });
+        const lg = await getImage({ src, width: 1400, format: "webp" });
+        return { p, release: releases.get(p.id), sm: sm.src, lg: lg.src, ar: Math.min(2.4, Math.max(1.4, src.width / src.height)) };
+      }),
+    ),
+  })),
+);
+// Scroll room for the hall: about one screen per project plus breathing room.
+// Grows by itself as projects are added.
+const hallSpan = (2 + projects.length * 1.15 + rows.length * 0.45).toFixed(2);
 ---
 <BaseLayout>
-  <section class="hero wrap">
-    <div class="intro">
-      <h1 class="display">Mods, games and tools, built in the open.</h1>
-      <p class="lead muted">
-        {studio.name} is an independent studio making mods, tools and games.
-        Every download here goes straight to its official GitHub release.
-      </p>
-      <div class="btn-row">
-        <a class="btn btn-primary" href={href("/projects/")}>Browse projects</a>
-        {studio.links.discord
-          ? <a class="btn" href={studio.links.discord} rel="noopener" target="_blank"><Icon name="discord" />Join the Discord</a>
-          : <a class="btn" href={studio.links.github} rel="noopener" target="_blank"><Icon name="github" />Follow on GitHub</a>}
+  <noscript><style is:inline>[data-sc-in], [data-sc-stagger] > * { opacity: 1 !important; transform: none !important; }</style></noscript>
+  <div class="sc-grain" aria-hidden="true"></div>
+
+  <!-- Act 1: hero. The stage pins briefly while the prints fan apart. -->
+  <section class="hero" data-sc-act="pin" data-sc-span="1.7" aria-labelledby="hero-title">
+    <div data-sc-stage class="hero-stage">
+      <div class="plane plane-mark" data-sc-parallax="-0.5" aria-hidden="true">
+        <div class="mark-fan"><Bird variant="mark" /></div>
+      </div>
+
+      <div class="plates" aria-hidden="true">
+        {plates.map((pl) => (
+          <div class:list={["plate", `plate--${pl.slot}`]} data-sc-parallax={pl.slot === "front" ? "0.8" : pl.slot === "mid" ? "-1" : "-1.4"}>
+            <div class="plate-fan" style={`--plate-accent: ${pl.accent}; aspect-ratio: ${pl.w} / ${pl.h}`}>
+              <img class:list={{ pixel: pl.pixel }} src={pl.src} alt="" width={pl.w} height={pl.h} loading="eager" decoding="async" />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div class="hero-copy">
+        <h1 id="hero-title" class="display">Mods, games and tools, built in the open.</h1>
+        <p class="lead">{studio.name} is one developer making mods, games and tools. Every download links to the project's own GitHub release.</p>
+        <div class="btn-row">
+          <a class="btn btn-primary" href={href("/projects/")}>Browse projects</a>
+          {studio.links.discord && <a class="btn" href={href("/discord/")}><Icon name="discord" />Join the Discord</a>}
+        </div>
       </div>
     </div>
-
-    <aside class="board" aria-labelledby="board-title">
-      <h2 id="board-title">Latest releases</h2>
-      {board.length ? (
-        <ol>
-          {board.map(({ project, release }) => (
-            <li style={`--accent: ${project.data.accent}`}>
-              <a href={href(`/projects/${project.id}/`)}>
-                <span class="swatch" aria-hidden="true"></span>
-                <span class="name">{project.data.title}<small class="muted">{project.data.platform}</small></span>
-                <span class="ver">
-                  <strong>{release!.version}</strong>
-                  <small class="muted"><time datetime={release!.publishedAt.toISOString()}>{formatDate(release!.publishedAt)}</time></small>
-                </span>
-              </a>
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <p class="muted empty">Releases appear here as soon as a project publishes one on GitHub.</p>
-      )}
-      <p class="board-foot muted">Versions update automatically from GitHub. <a href={studio.links.github} rel="noopener" target="_blank">Follow releases</a></p>
-    </aside>
   </section>
 
-  {rows.map((row) => (
-    <section class="section wrap" aria-labelledby={`row-${row.slug}`}>
-      <div class="section-head">
-        <div>
-          <h2 id={`row-${row.slug}`}>{row.label}</h2>
-          {row.platforms.length > 0 && <p class="muted row-sub">For {row.platforms.join(", ")}</p>}
-        </div>
-        <a class="all" href={href(`/projects/?type=${row.slug}`)}>All {row.label.toLowerCase()} ({row.items.length})</a>
-      </div>
-      {row.items.length === 1
-        ? <ProjectCard project={row.items[0]} wide />
-        : <div class="grid">{row.items.slice(0, perRow).map((p) => <ProjectCard project={p} />)}</div>}
-    </section>
-  ))}
+  <!-- Act 2: the release ledger. The quiet act before the hall. -->
+  <section class="ledger wrap" data-sc-act="flow" aria-labelledby="ledger-title">
+    <div class="ledger-head" data-sc-in>
+      <h2 id="ledger-title">Latest releases</h2>
+      <p class="muted">Version numbers and dates come from each project's GitHub release and refresh every day.</p>
+    </div>
+    {ledger.length ? (
+      <ol class="ledger-rows" data-sc-in data-sc-stagger="60">
+        {ledger.map((p) => {
+          const r = releases.get(p.id)!;
+          return (
+            <li style={`--accent: ${p.data.accent}`}>
+              <a href={href(`/projects/${p.id}/`)}>
+                <span class="swatch" aria-hidden="true"></span>
+                <span class="l-name">{p.data.title}<small>{p.data.platform}</small></span>
+                <span class="l-ver">{r.version}</span>
+                <time class="l-date" datetime={r.publishedAt.toISOString()}>{formatDate(r.publishedAt)}</time>
+              </a>
+            </li>
+          );
+        })}
+      </ol>
+    ) : (
+      <p class="muted ledger-empty">Releases show up here once a project publishes one on GitHub.</p>
+    )}
+  </section>
 
+  <!-- Act 3: the projects hall (the peak). Vertical scroll walks it sideways. -->
+  <section class="hall" data-sc-act="pan" data-sc-span={hallSpan} aria-labelledby="hall-title">
+    <div data-sc-stage class="hall-stage">
+      <div class="rail" data-sc-pan="0.04">
+        <div class="r-item r-intro">
+          <h2 id="hall-title" class="display">Projects</h2>
+          <p class="muted">Grouped by type. Each one has its own page with downloads, requirements and a guide.</p>
+        </div>
+
+        {hall.map((row) => (
+          <>
+            <div class="r-item r-wing">
+              <h3>{row.label}</h3>
+              {row.platforms.length > 0 && <p class="muted">For {row.platforms.join(", ")}</p>}
+              <a class="all" href={href(`/projects/?type=${row.slug}`)}>All {row.label.toLowerCase()} ({row.items.length})</a>
+            </div>
+            {row.items.map(({ p, release, sm, lg, ar }) => {
+              const state = p.data.status === "Released" ? "released" : p.data.status === "In development" ? "development" : undefined;
+              return (
+                <article class="r-item obj" style={`--accent: ${p.data.accent}; --ar: ${ar}`}>
+                  <a class="frame" href={href(`/projects/${p.id}/`)} tabindex="-1" aria-hidden="true">
+                    <img class:list={{ pixel: p.data.pixelArt }} src={sm} srcset={`${sm} 800w, ${lg} 1400w`} sizes="(max-width: 860px) 88vw, 60vw" alt="" loading="lazy" decoding="async" />
+                  </a>
+                  <div class="label">
+                    <h4><a href={href(`/projects/${p.id}/`)}>{p.data.title}</a></h4>
+                    <p class="l-kind">{p.data.kind}, {p.data.platform}</p>
+                    <p class="l-rel">
+                      <span class="status"><span class="dot" data-state={state}></span>{p.data.status}</span>
+                      {release && <span>Version {release.version}, {formatDate(release.publishedAt)}</span>}
+                    </p>
+                    <p class="l-sum muted">{p.data.summary}</p>
+                  </div>
+                </article>
+              );
+            })}
+          </>
+        ))}
+
+        <div class="r-item r-outro">
+          <p>The projects page lists everything, with filters for type and platform.</p>
+          <a class="btn" href={href("/projects/")}>All projects</a>
+        </div>
+      </div>
+
+      <div class="docent" aria-hidden="true">
+        <div class="docent-hop"><div class="docent-face"><Bird variant="docent" /></div></div>
+        <span class="afk-tag">afk</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Act 4: servers, with a wipe for the live status card. -->
   {servers.length > 0 && (
-    <section class="section wrap" aria-labelledby="servers-title">
+    <section class="section wrap servers" data-sc-act="flow" aria-labelledby="servers-title">
       <div class="section-head">
         <h2 id="servers-title">Servers</h2>
         <p class="muted">Live status for the servers we run. Open a server's guide to get whitelisted and join.</p>
       </div>
-      <ServerList servers={servers} />
+      <div data-sc-reveal="right" data-sc-reveal-at="0.02 0.24">
+        <ServerList servers={servers} />
+      </div>
     </section>
   )}
 
+  <!-- Act 5: videos (only when the channel has a qualifying upload). -->
   <LatestVideos />
 
-  <section class="section wrap" aria-labelledby="community-title">
-    <div class="section-head">
+  <!-- Act 6: community. -->
+  <section class="section wrap" data-sc-act="flow" aria-labelledby="community-title">
+    <div class="section-head" data-sc-in>
       <h2 id="community-title">Community</h2>
       <p class="muted">News lands on Discord first, then on X and YouTube.</p>
     </div>
     <Community />
   </section>
 
-  <section class="section wrap studio" aria-labelledby="about-title">
-    <div>
-      <h2 id="about-title" class="display">One developer.<br />Every project shipped properly.</h2>
-    </div>
-    <div class="studio-copy">
-      <p>
-        Each project gets real documentation, versioned releases and an issue tracker, whether it's a mod, a game or a
-        small tool. When something breaks, you can report it in the open and follow the fix.
+  <!-- Act 7: the close, set like one of the hall's labels. -->
+  <section class="close wrap" aria-labelledby="close-title">
+    <div class="plate-card" data-sc-in>
+      <div class="pc-mark"><Bird variant="mark" /></div>
+      <h2 id="close-title" class="display">{studio.name}</h2>
+      <dl class="pc-facts">
+        <div><dt>Studio</dt><dd>Independent, one developer, since {studio.founded}</dd></div>
+        <div><dt>Makes</dt><dd>Mods, games, tools and bots</dd></div>
+        <div><dt>Downloads</dt><dd>GitHub Releases only</dd></div>
+        {studio.links.email && <div><dt>Contact</dt><dd><a href={`mailto:${studio.links.email}`}>{studio.links.email}</a></dd></div>}
+      </dl>
+      <p class="pc-cta">
+        {studio.links.discord && <><a href={href("/discord/")}>Join the Discord</a> for news and help, or read </>}
+        {!studio.links.discord && <>Read </>}
+        <a href={href("/about/")}>about the studio</a>.
       </p>
-      <a class="btn" href={href("/about/")}>About the studio</a>
     </div>
   </section>
+
+  <script is:inline src={href("/scrollcraft/scrollcraft.js")}></script>
+  <script is:inline>window.ScrollCraft && ScrollCraft.mount(document.body);</script>
 </BaseLayout>
 
+<script>
+  // The AFK bird: perches on the frame nearest the middle of the screen, hops
+  // to the next one as the hall pans, and nods off when the visitor goes idle.
+  const hall = document.querySelector<HTMLElement>(".hall");
+  const stage = hall?.querySelector<HTMLElement>(".hall-stage");
+  const docent = hall?.querySelector<HTMLElement>(".docent");
+  const hop = docent?.querySelector<HTMLElement>(".docent-hop");
+  const face = docent?.querySelector<HTMLElement>(".docent-face");
+  const frames = hall ? [...hall.querySelectorAll<HTMLElement>(".frame")] : [];
+
+  if (hall && stage && docent && hop && face && frames.length) {
+    const still = matchMedia("(prefers-reduced-motion: reduce)");
+    const IDLE_MS = 7000;
+    let x: number | null = null;
+    let y: number | null = null;
+    let raf = 0;
+    let onScreen = false;
+    let idle = 0;
+
+    const target = () => {
+      const s = stage.getBoundingClientRect();
+      const cx = innerWidth / 2;
+      const cy = innerHeight / 2;
+      let best: DOMRect | null = null;
+      let bestD = Infinity;
+      for (const f of frames) {
+        const r = f.getBoundingClientRect();
+        if (r.right < 0 || r.left > innerWidth || r.bottom < 0 || r.top > innerHeight) continue;
+        const d = Math.abs((r.left + r.right) / 2 - cx) + Math.abs((r.top + r.bottom) / 2 - cy) * 0.5;
+        if (d < bestD) { bestD = d; best = r; }
+      }
+      if (!best) return null;
+      const w = docent.offsetWidth;
+      const h = docent.offsetHeight;
+      // Stand on the top edge, toward the right-hand corner of the part of the
+      // frame that is on screen, so the bird never walks off the edge.
+      const left = Math.max(best.left, 0) + 12;
+      const right = Math.min(best.right, innerWidth - 16) - w - Math.min(28, best.width * 0.06);
+      return { x: Math.max(left, right) - s.left, y: best.top - s.top - h + 3 };
+    };
+
+    const frame = () => {
+      raf = 0;
+      const t = target();
+      if (!t) { docent.classList.remove("is-shown"); }
+      else {
+        docent.classList.add("is-shown");
+        if (x === null || y === null || still.matches) { x = t.x; y = t.y; }
+        const dx = t.x - x;
+        x += dx * 0.12;
+        y += (t.y - y) * 0.2;
+        const lift = still.matches ? 0 : -Math.min(30, Math.abs(dx) * 0.16);
+        docent.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+        hop.style.transform = `translate3d(0, ${lift.toFixed(1)}px, 0)`;
+        if (Math.abs(dx) > 2) face.classList.toggle("is-left", dx < 0);
+      }
+      if (onScreen) raf = requestAnimationFrame(frame);
+    };
+
+    new IntersectionObserver(([e]) => {
+      onScreen = e.isIntersecting;
+      if (onScreen && !raf) raf = requestAnimationFrame(frame);
+    }).observe(hall);
+
+    // Idle detection. Any input wakes the bird and restarts the clock.
+    const wake = () => {
+      if (docent.classList.contains("afk")) {
+        docent.classList.remove("afk");
+        docent.classList.add("waking");
+        setTimeout(() => docent.classList.remove("waking"), 320);
+      }
+      clearTimeout(idle);
+      idle = window.setTimeout(() => docent.classList.add("afk"), IDLE_MS);
+    };
+    for (const ev of ["scroll", "wheel", "pointermove", "pointerdown", "keydown", "touchstart"]) {
+      addEventListener(ev, wake, { passive: true });
+    }
+    wake();
+  }
+
+  // Keyboard: when Tab lands on something in the hall that is off to the side,
+  // scroll the page to the point where the rail brings it to the middle. The
+  // engine moves the rail by -(overflow * (1 + data-sc-pan)) * progress.
+  const rail = hall?.querySelector<HTMLElement>(".rail");
+  if (hall && rail) {
+    rail.addEventListener("focusin", (e) => {
+      if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      const item = (e.target as HTMLElement).closest<HTMLElement>(".r-item");
+      const over = rail.scrollWidth - innerWidth;
+      if (!item || over <= 0) return;
+      const travel = over * (1 + (parseFloat(rail.dataset.scPan ?? "0") || 0));
+      const p = Math.min(1, Math.max(0, (item.offsetLeft + item.offsetWidth / 2 - innerWidth / 2) / travel));
+      const top = hall.getBoundingClientRect().top + scrollY;
+      scrollTo({ top: top + p * (hall.offsetHeight - innerHeight), behavior: "instant" as ScrollBehavior });
+    });
+  }
+</script>
+
 <style>
-  .hero { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: clamp(32px, 6vw, 80px); align-items: end; padding-block: clamp(48px, 9vw, 112px) clamp(32px, 5vw, 56px); }
-  h1 { font-size: var(--step-4); line-height: 1.02; max-width: 15ch; }
-  .lead { margin-block: 24px 32px; font-size: var(--step-1); line-height: 1.55; max-width: 46ch; }
+  /* ---------- Act 1: hero ---------- */
+  .hero-stage { overflow: clip; }
+  .hero-copy {
+    position: absolute; z-index: 4; left: max(var(--gutter), calc((100vw - var(--page)) / 2));
+    bottom: clamp(48px, 14vh, 140px); width: min(34rem, 46vw);
+  }
+  .hero h1 { font-size: clamp(2.4rem, 1.4rem + 3.6vw, 4.6rem); max-width: 13ch; }
+  .lead { margin-block: 22px 30px; font-size: var(--step-1); line-height: 1.55; color: #c9cdd6; max-width: 40ch; }
 
-  .board { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 22px 16px; }
-  .board h2 { font-size: var(--step-1); margin-bottom: 12px; }
-  .board ol { list-style: none; margin: 0; padding: 0; }
-  .board li + li { border-top: 1px solid var(--line); }
-  .board ol a { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; padding: 14px 8px; margin-inline: -8px; border-radius: 8px; text-decoration: none; }
-  .board ol a:hover { background: var(--surface-2); }
-  .swatch { width: 10px; height: 40px; border-radius: 3px; background: var(--accent); }
-  .name { display: grid; font-weight: 750; font-size: var(--step-1); line-height: 1.25; }
-  .name small, .ver small { font-size: var(--step--1); font-weight: 450; }
-  .ver { display: grid; justify-items: end; line-height: 1.3; }
-  .ver strong { font-stretch: var(--wide); font-size: var(--step-1); }
-  .empty { padding-block: 8px 12px; }
-  .board-foot a { color: var(--text); text-underline-offset: 3px; }
-  .board-foot { margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--line); font-size: var(--step--1); }
+  .plane, .plate { position: absolute; }
+  .plane img, .plate img { max-width: none; }
+  /* The mark: the back plane. Large, cropped by the right edge, receding. */
+  .plane-mark { z-index: 1; right: -9vw; top: calc(64px + 4vh); width: min(64vw, 92svh); color: var(--studio); }
+  .mark-fan { transform: scale(calc(1 - var(--sc-p, 0) * 0.07)); transform-origin: 70% 40%; }
 
-  .all { color: var(--muted); font-weight: 600; text-underline-offset: 4px; }
+  /* The prints sit between the mark and the copy. Each has its own rate, and
+     the inner .plate-fan turns and slides a little further as the act
+     progresses, so the stack visibly opens up. */
+  .plates { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+  .plate-fan {
+    position: relative; padding: 8px; border-radius: 12px; background: var(--surface);
+    box-shadow: var(--edge), var(--e3);
+    transform: translate3d(calc(var(--sc-p, 0) * var(--dx)), calc(var(--sc-p, 0) * var(--dy)), 0) rotate(calc(var(--r0) + var(--sc-p, 0) * var(--dr)));
+  }
+  .plate-fan::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: 8px; height: 3px; background: var(--plate-accent); border-radius: 0 0 4px 4px; }
+  .plate-fan img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; background: #1a1d24; }
+  .pixel { image-rendering: pixelated; }
+  /* The prints keep to the right of the copy column (which ends near 50vw).
+     Stacking order follows depth: back, then mid, then front. */
+  .plate--back { z-index: 1; } .plate--mid { z-index: 2; } .plate--front { z-index: 3; }
+  .plate--back  { width: min(28vw, 440px); right: max(20vw, calc((100vw - var(--page)) / 2 + 210px)); top: calc(64px + 8vh); }
+  .plate--mid   { width: min(34vw, 540px); right: max(4vw, calc((100vw - var(--page)) / 2 - 40px)); top: calc(64px + 30vh); }
+  .plate--front { width: min(25vw, 390px); right: max(21vw, calc((100vw - var(--page)) / 2 + 230px)); top: calc(64px + 53vh); }
+  .plate--back  .plate-fan { --r0: -4deg; --dr: -5deg; --dx: -1vw; --dy: -3vh; }
+  .plate--mid   .plate-fan { --r0: 3deg;  --dr: 4deg;  --dx: 3vw;  --dy: 1vh; }
+  .plate--front .plate-fan { --r0: -2deg; --dr: -5deg; --dx: -1.5vw; --dy: 5vh; }
+
+  /* ---------- Act 2: ledger ---------- */
+  .ledger { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr); gap: 24px clamp(32px, 6vw, 88px); padding-block: clamp(56px, 8vw, 104px); align-items: start; }
+  .ledger-head h2 { font-size: var(--step-3); }
+  .ledger-head p { margin-top: 12px; max-width: 34ch; }
+  .ledger-rows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  .ledger-rows li { border-bottom: 1px solid var(--line); }
+  .ledger-rows a { display: grid; grid-template-columns: auto minmax(0, 1fr) auto 7.5rem; align-items: center; gap: 18px; padding: 16px 10px; margin-inline: -10px; border-radius: 8px; text-decoration: none; transition: background-color 150ms var(--ease-out); }
+  .ledger-rows a:hover { background: var(--surface); }
+  .swatch { width: 8px; height: 34px; border-radius: 3px; background: var(--accent); }
+  .l-name { display: grid; font-weight: 750; font-size: var(--step-1); line-height: 1.25; }
+  .l-name small { color: var(--muted); font-size: var(--step--1); font-weight: 450; }
+  .l-ver { font-stretch: var(--wide); font-weight: 800; font-size: var(--step-1); }
+  .l-date { color: var(--muted); font-size: var(--step--1); text-align: right; }
+
+  /* ---------- Act 3: projects hall ---------- */
+  .hall-stage { --fh: min(46svh, 31vw); background: #111318; border-block: 1px solid var(--line); overflow: clip; }
+  .rail { align-items: flex-start; gap: clamp(36px, 5vw, 80px); height: 100%; padding: max(calc(64px + 32px), calc((100svh - var(--fh) - 11rem) / 2 + 2.5rem)) clamp(24px, 6vw, 96px) 0; }
+  .r-item { flex: none; }
+  .r-intro { width: min(30rem, 36vw); padding-top: calc(var(--fh) * 0.18); }
+  .r-intro h2 { font-size: clamp(2.6rem, 1.6rem + 4vw, 5.4rem); }
+  .r-intro p { margin-top: 16px; font-size: var(--step-1); max-width: 30ch; }
+  .r-wing { width: min(17rem, 24vw); padding-top: calc(var(--fh) * 0.34); border-left: 1px solid var(--line); padding-left: 22px; margin-left: 8px; }
+  .r-wing h3 { font-size: var(--step-3); font-stretch: var(--wide); }
+  .r-wing p { margin-top: 6px; font-size: var(--step--1); }
+  .all { display: inline-block; margin-top: 14px; color: var(--muted); font-weight: 600; font-size: var(--step--1); text-underline-offset: 4px; }
   .all:hover { color: var(--text); }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 20px; }
-  .row-sub { margin-top: 6px; font-size: var(--step--1); }
 
-  .studio { display: grid; grid-template-columns: 1fr 1fr; gap: 32px clamp(32px, 6vw, 80px); align-items: start; border-top: 1px solid var(--line); }
-  .studio h2 { font-size: var(--step-3); line-height: 1.08; }
-  .studio-copy { display: grid; gap: 24px; justify-items: start; }
-  .studio-copy p { font-size: var(--step-1); line-height: 1.55; color: var(--muted); max-width: 48ch; }
+  .obj { display: grid; gap: 22px; width: min(calc(var(--fh) * var(--ar)), 62vw); }
+  .frame { display: block; height: var(--fh); padding: 10px; border-radius: 12px; background: var(--surface); box-shadow: var(--edge), var(--e2); position: relative; }
+  .frame::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: 10px; height: 3px; background: var(--accent); border-radius: 0 0 4px 4px; }
+  .frame img { width: 100%; height: 100%; object-fit: contain; border-radius: 6px; background: #0d0f13; }
+  .label { display: grid; gap: 4px; max-width: 46ch; }
+  .label h4 { font-size: var(--step-2); font-stretch: var(--wide); }
+  .label h4 a { text-decoration: none; }
+  .label h4 a:hover { text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: 5px; }
+  .l-kind { font-size: var(--step--1); color: #c9cdd6; }
+  .l-rel { display: flex; flex-wrap: wrap; gap: 2px 16px; font-size: var(--step--1); color: var(--muted); }
+  .status { display: inline-flex; align-items: center; gap: 8px; color: var(--text); font-weight: 600; }
+  .l-sum { margin-top: 6px; font-size: var(--step--1); line-height: 1.55; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .r-outro { width: min(22rem, 30vw); padding-top: calc(var(--fh) * 0.34); border-left: 1px solid var(--line); padding-left: 22px; display: grid; gap: 18px; justify-items: start; }
+  .r-outro p { color: #c9cdd6; }
 
+  /* The AFK bird. JS sets the outer transform (position); the hop wrapper
+     lifts it between frames; the face flips to look the way it travels. */
+  .docent { position: absolute; left: 0; top: 0; z-index: 5; width: 46px; opacity: 0; transition: opacity 200ms var(--ease-out); pointer-events: none; color: var(--studio); }
+  .docent.is-shown { opacity: 1; }
+  .docent-face { transition: transform 160ms var(--ease-out); }
+  .docent-face.is-left { transform: scaleX(-1); }
+  .docent :global(.bird-body) { transform-origin: 50% 90%; transition: transform 420ms var(--ease-out); }
+  .docent.afk :global(.bird-body) { transform: rotate(9deg) translateY(4px); }
+  .docent.waking :global(.bird-body) { transform: translateY(-5px); transition-duration: 160ms; }
+  .afk-tag {
+    position: absolute; left: 50%; top: -22px; translate: -50% 0; padding: 1px 7px; border-radius: 999px;
+    border: 1px solid color-mix(in oklab, var(--studio) 55%, transparent); color: var(--studio);
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; background: #111318;
+    opacity: 0; transform: translate3d(0, 4px, 0); transition: opacity 240ms var(--ease-out), transform 240ms var(--ease-out);
+  }
+  .docent.afk .afk-tag { opacity: 1; transform: none; }
+
+  /* ---------- Acts 4-6 ---------- */
+  .servers { padding-top: clamp(40px, 6vw, 72px); }
+
+  /* ---------- Act 7: the close ---------- */
+  .close { padding-block: clamp(40px, 6vw, 72px) clamp(56px, 8vw, 96px); }
+  .plate-card {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 28px; align-items: start;
+    max-width: 44rem; padding: clamp(24px, 4vw, 40px); border-radius: 14px;
+    background: var(--surface); border: 1px solid var(--line); box-shadow: var(--edge), var(--e2);
+  }
+  .pc-mark { width: 64px; color: var(--studio); grid-row: span 3; }
+  .plate-card h2 { font-size: var(--step-3); }
+  .pc-facts { margin: 10px 0 0; display: grid; gap: 6px; font-size: var(--step--1); }
+  .pc-facts div { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: 12px; }
+  .pc-facts dt { color: var(--muted); }
+  .pc-facts dd { margin: 0; }
+  .pc-cta { margin-top: 14px; color: #c9cdd6; }
+  .pc-cta a { color: var(--text); font-weight: 650; text-decoration-color: var(--studio); text-underline-offset: 4px; }
+
+  /* ---------- Phones and narrow tablets ---------- */
   @media (max-width: 860px) {
-    .hero, .studio { grid-template-columns: 1fr; }
+    .hero-copy { left: var(--gutter); right: var(--gutter); width: auto; top: calc(64px + 5svh); bottom: auto; }
+    .hero h1 { font-size: clamp(2.1rem, 1.3rem + 4.6vw, 3rem); }
+    .lead { margin-block: 14px 20px; font-size: var(--step-0); }
+    .plane-mark { width: 88vw; right: -26vw; top: auto; bottom: -5svh; }
+    /* Tops allow for the parallax offset at rest (back +70px, mid +50px, front -40px). */
+    .plate--back  { width: 58vw; right: -4vw; top: calc(64px + 38svh); }
+    .plate--mid   { width: 64vw; right: auto; left: 2vw; top: calc(64px + 49svh); }
+    .plate--front { width: 46vw; right: 5vw; top: calc(64px + 66svh); }
+    /* On a phone the prints fan downward, away from the buttons above them. */
+    .plate--back .plate-fan { --dx: 3vw; --dy: 6svh; }
+    .plate--mid .plate-fan { --dx: -2vw; --dy: 4svh; }
+    .ledger { grid-template-columns: 1fr; }
+    .ledger-rows a { grid-template-columns: auto minmax(0, 1fr) auto; }
+    .l-date { grid-column: 2 / -1; text-align: left; margin-top: -10px; }
+
+    .hall-stage { --fh: min(38svh, 70vw); }
+    .rail { gap: 28px; }
+    .r-intro { width: 78vw; }
+    .r-wing, .r-outro { width: 52vw; }
+    .obj { width: min(calc(var(--fh) * var(--ar)), 84vw); }
+    .docent { width: 38px; }
+    .plate-card { grid-template-columns: 1fr; }
+    .pc-mark { width: 48px; grid-row: auto; }
+  }
+
+  /* ---------- Reduced motion: no pinning, nothing moves with scroll ---------- */
+  @media (prefers-reduced-motion: reduce) {
+    .hero, .hall { height: auto !important; }
+    .hero-stage, .hall-stage { position: relative !important; top: auto !important; height: auto !important; }
+    .hero-stage { min-height: min(100svh, 820px); }
+    .mark-fan, .plate-fan { transform: rotate(var(--r0, 0deg)); }
+    .hall-stage { overflow: visible !important; }
+    .rail { flex-wrap: wrap; height: auto; padding-bottom: 64px; row-gap: 56px; }
+    .docent-hop, .docent :global(.bird-body) { transform: none !important; }
   }
 </style>

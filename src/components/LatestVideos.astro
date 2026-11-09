@@ -11,12 +11,12 @@ const videos = await latestVideos(studio.youtubeChannelId, 3, {
 });
 ---
 {videos.length > 0 && (
-  <section class="section wrap" aria-labelledby="videos-title">
+  <section class="section wrap" data-sc-act="flow" aria-labelledby="videos-title">
     <div class="section-head">
       <h2 id="videos-title">Latest videos</h2>
       {studio.links.youtube && <a class="all" href={studio.links.youtube} rel="noopener" target="_blank">All videos on YouTube</a>}
     </div>
-    <ul class="videos">
+    <ul class="videos" data-sc-in data-sc-stagger="70">
       {videos.map((v) => (
         <li>
           <a href={v.url} rel="noopener" target="_blank">

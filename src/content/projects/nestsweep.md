@@ -57,11 +57,11 @@ Nestsweep starts with your normal rights. Choose **Restart as administrator** in
 
 Nestsweep would rather leave something behind than delete the wrong thing.
 
-* **You can undo it.** Registry keys are backed up before they're removed, leftover folders and shortcuts go to the Recycle Bin, drivers are backed up before updates, and sleeping programs can be woken again.
-* **Your files are off limits.** It never empties Windows, Program Files, user profiles or your personal folders, and never follows junctions or symbolic links.
-* **Cautious defaults.** Temp files from the last 48 hours are kept, emptying the Recycle Bin is off unless you tick it, and nothing is pre-selected in Drivers.
-* **Risky drivers are never offered.** Storage, chipset, firmware, network, USB, keyboard and mouse drivers stay as they are, because a bad one can stop a PC from starting.
-* **Security software stays awake.** Antivirus, firewall, VPN, backup and audio tools are never offered for Sleep mode.
+* You can undo it. Registry keys are backed up before they're removed, leftover folders and shortcuts go to the Recycle Bin, drivers are backed up before updates, and sleeping programs can be woken again.
+* Your files are off limits. It never empties Windows, Program Files, user profiles or your personal folders, and never follows junctions or symbolic links.
+* Cautious defaults. Temp files from the last 48 hours are kept, emptying the Recycle Bin is off unless you tick it, and nothing is pre-selected in Drivers.
+* Risky drivers are never offered. Storage, chipset, firmware, network, USB, keyboard and mouse drivers stay as they are, because a bad one can stop a PC from starting.
+* Security software stays awake. Antivirus, firewall, VPN, backup and audio tools are never offered for Sleep mode.
 
 ## Privacy
 
